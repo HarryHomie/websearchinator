@@ -1,0 +1,68 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install py2app pillow
+    
+    - name: Convert PNG icon to ICNS
+      run: |
+        mkdir icon.iconset
+        sips -z 16 16 icon.png --out icon.iconset/icon_16x16.png
+        sips -z 32 32 icon.png --out icon.iconset/icon_16x16@2x.png
+        sips -z 32 32 icon.png --out icon.iconset/icon_32x32.png
+        sips -z 64 64 icon.png --out icon.iconset/icon_32x32@2x.png
+        sips -z 128 128 icon.png --out icon.iconset/icon_128x128.png
+        sips -z 256 256 icon.png --out icon.iconset/icon_128x128@2x.png
+        sips -z 256 256 icon.png --out icon.iconset/icon_256x256.png
+        sips -z 512 512 icon.png --out icon.iconset/icon_256x256@2x.png
+        sips -z 512 512 icon.png --out icon.iconset/icon_512x512.png
+        sips -z 1024 1024 icon.png --out icon.iconset/icon_512x512@2x.png
+        iconutil -c icns icon.iconset
+        rm -rf icon.iconset
+    
+    - name: Build macOS app with py2app
+      run: |
+        python setup.py py2app
+    
+    - name: Create ZIP of app
+      run: |
+        cd dist
+        zip -r ../Web-Search-inator-macOS.zip "Web Search-inator.app"
+        cd ..
+    
+    - name: Upload macOS app
+      uses: actions/upload-artifact@v3
+      with:
+        name: Web-Search-inator-macOS
+        path: Web-Search-inator-macOS.zip
+        retention-days: 30
+    
+    - name: Create Release (Optional)
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: Web-Search-inator-macOS.zip
+        tag_name: v1.0.0
+        name: Release v1.0.0
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
